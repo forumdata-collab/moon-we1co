@@ -123,7 +123,7 @@ function buildMoon(heightImg, colorImg, normalImg) {
 
   const mat = new THREE.MeshStandardMaterial({
     map: tex,
-    normalMap: normalTex,
+    normalMap: normalImg ? normalTex : null,
     normalScale: new THREE.Vector2(2.4, 2.4),
     roughness: 0.97,
     metalness: 0,
@@ -371,15 +371,39 @@ document.getElementById("sim-dt").addEventListener("input", (e) => {
 });
 
 /* ---------- load ---------- */
-const isSlow = navigator.connection && (navigator.connection.effectiveType === "3g" || navigator.connection.downlink < 1.5);
-const hiDpi = (devicePixelRatio || 1) >= 1.5;
-const colorSize = isSlow ? "_2k" : (hiDpi ? "_8k" : "_4k");
+// GPU-aware 紋理揀選：查實際 MAX_TEXTURE_SIZE；手機（細屏/觸控）封頂 4K，唔好用 8K（好多手機 GPU 上限 4096，8K upload 唔到 → 月面變黑）
+function webglMaxTex() {
+  try {
+    const c = document.createElement("canvas");
+    const gl = c.getContext("webgl") || c.getContext("experimental-webgl");
+    if (!gl) return 4096;
+    const m = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+    const lose = gl.getExtension("WEBGL_lose_context");
+    if (lose) lose.loseContext();
+    return m || 4096;
+  } catch (e) { return 4096; }
+}
+const maxTex = webglMaxTex();
+const isMobile = ("ontouchstart" in window) || (navigator.maxTouchPoints || 0) > 0 || window.innerWidth < 700;
+// 手機一律 2K：月面喺手機只佔幾百 px，2K 已經 3 倍 oversample；避開細 GPU upload 上限同低記憶體
+const texCap = isMobile ? 2048 : Math.min(maxTex, 8192);
+const SIZES = [["_8k", 8192], ["_4k", 4096], ["_2k", 2048]];
+const colorSize = (SIZES.find(([_, s]) => s <= texCap) || SIZES[2])[0];
 const imgLoader = new THREE.ImageLoader();
 const loadImg = (url) => new Promise((res, rej) => imgLoader.load(url, (img) => res(img), undefined, rej));
+// 下載失敗 → 自動降級細一級，唔會全黑
+async function loadColor(idx = SIZES.findIndex(([_, s]) => s <= texCap)) {
+  try { return await loadImg(`./tex/color${SIZES[idx][0]}.jpg`); }
+  catch (e) { return idx < SIZES.length - 1 ? loadColor(idx + 1) : Promise.reject(e); }
+}
+async function loadNormal() {
+  try { return await loadImg("./tex/normal_4k.jpg"); }
+  catch (e) { return null; }   // 法線失敗唔阻載入
+}
 Promise.all([
   loadImg("./tex/height_2k.png"),
-  loadImg(`./tex/color${colorSize}.jpg`),
-  loadImg("./tex/normal_4k.jpg"),
+  loadColor(),
+  loadNormal(),
 ]).then(([h, c, n]) => {
   buildMoon(h, c, n);
   updateInfo();
@@ -406,3 +430,9 @@ window.addEventListener("resize", () => {
 });
 
 window.addEventListener("pointerdown", () => (tooltip.hidden = false));
+
+/* WebGL context lost（記憶體/驅動問題）→ 自動重載，唔好成版黑 */
+window.addEventListener("webglcontextlost", (e) => {
+  e.preventDefault();
+  setTimeout(() => location.reload(), 300);
+});
