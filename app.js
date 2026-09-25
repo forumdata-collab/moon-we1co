@@ -40,7 +40,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMappingExposure = 1.0;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
@@ -54,11 +54,11 @@ controls.maxDistance = 12;
 controls.autoRotate = false;
 
 /* sun light (moon phase) */
-const sun = new THREE.DirectionalLight(0xfff3e0, 2.6);
+const sun = new THREE.DirectionalLight(0xfff6e8, 3.0);
 scene.add(sun);
 
-/* ambient earthshine */
-scene.add(new THREE.AmbientLight(0x334466, 0.35));
+/* ambient earthshine (dim so the terminator side is dark, photo-like) */
+scene.add(new THREE.AmbientLight(0x334466, 0.16));
 
 /* ---------- stars ---------- */
 function stars(count, size, spread) {
@@ -86,7 +86,7 @@ const MOON_RADIUS = 1.0;
 const HEIGHT_SCALE = 0.012;
 let moonMesh = null, normalTex = null;
 
-function buildMoon(heightImg, colorImg) {
+function buildMoon(heightImg, colorImg, normalImg) {
   const seg = 256;
   const geo = new THREE.SphereGeometry(MOON_RADIUS, seg, seg);
   const pos = geo.attributes.position;
@@ -117,19 +117,24 @@ function buildMoon(heightImg, colorImg) {
   tex.flipY = false;
   tex.anisotropy = 4;
 
-  normalTex = new THREE.TextureLoader().load("./tex/normal_2k.jpg");
+  normalTex = new THREE.Texture(normalImg);
   normalTex.colorSpace = THREE.NoColorSpace;
   normalTex.flipY = false;
 
   const mat = new THREE.MeshStandardMaterial({
     map: tex,
     normalMap: normalTex,
-    normalScale: new THREE.Vector2(1.5, 1.5),
-    roughness: 0.96,
+    normalScale: new THREE.Vector2(2.4, 2.4),
+    roughness: 0.97,
     metalness: 0,
   });
   moonMesh = new THREE.Mesh(geo, mat);
   scene.add(moonMesh);
+  window.__tex = {
+    color: [tex.image && tex.image.width, tex.image && tex.image.height],
+    normal: normalTex.image && normalTex.image.width,
+    colorUrl: tex.image && tex.image.src,
+  };
   document.getElementById("loading").hidden = true;
 }
 
@@ -204,17 +209,12 @@ function updateInfo() {
     document.getElementById("az-val").textContent = "—";
   }
 
-  // sun direction (of-date equatorial) as scene light; moon is illuminated from the sun side
-  const sunEq = Astronomy.Equator("Sun", now, OBS, true, true);
-  const decRad = sunEq.dec * (Math.PI / 180);       // dec in degrees
-  const raRad = sunEq.ra * (Math.PI / 12);          // ra in hours
-  sun.position.set(
-    Math.cos(decRad) * Math.cos(raRad) * 8,
-    Math.sin(decRad) * 8,
-    Math.cos(decRad) * Math.sin(raRad) * 8
-  );
-  const moonDir = sun.position.clone().normalize();
-  return { sunny: moonDir, illum: phase };
+  // Light comes from the Earth-side (camera-side) direction, tilted by the real phase angle,
+  // so at full moon the terminator sits at the limb (photo-real), not across the face.
+  const phaseAngle = Math.acos(Math.max(-1, Math.min(1, 2 * phase - 1)));   // 0..π
+  const ca = Math.cos(phaseAngle), sa = Math.sin(phaseAngle);
+  sun.position.set(8 * sa, 0.0, 8 * ca);
+  return { phaseAngle, illum: phase };
 }
 
 /* ---------- lunar features ---------- */
@@ -298,30 +298,26 @@ function hover() {
 
 /* ---------- full moon view ---------- */
 document.getElementById("full-btn").addEventListener("click", () => {
-  const { sunny } = updateInfo();
-  camera.position.copy(sunny.clone().multiplyScalar(3.2));   // lit side = same side as the sun at full moon
-  camera.position.y += 0.2;
+  updateInfo();
+  camera.position.set(0, 0.35, 3.4);
   camera.lookAt(0, 0, 0);
   controls.update();
 });
 
 /* ---------- load ---------- */
 const isSlow = navigator.connection && (navigator.connection.effectiveType === "3g" || navigator.connection.downlink < 1.5);
-const colorSize = isSlow ? "_2k" : "_4k";
+const hiDpi = (devicePixelRatio || 1) >= 1.5;
+const colorSize = isSlow ? "_2k" : (hiDpi ? "_8k" : "_4k");
 const imgLoader = new THREE.ImageLoader();
 const loadImg = (url) => new Promise((res, rej) => imgLoader.load(url, (img) => res(img), undefined, rej));
 Promise.all([
   loadImg("./tex/height_2k.png"),
   loadImg(`./tex/color${colorSize}.jpg`),
-]).then(([h, c]) => {
-  buildMoon(h, c);
-  try {
-    const { sunny } = updateInfo();
-    camera.position.copy(sunny.clone().multiplyScalar(3.0));   // look at the lit (near) face
-    camera.position.y += 0.25;
-  } catch (e) {
-    camera.position.set(0, 0.35, 3.4);
-  }
+  loadImg("./tex/normal_4k.jpg"),
+]).then(([h, c, n]) => {
+  buildMoon(h, c, n);
+  updateInfo();
+  camera.position.set(0, 0.35, 3.4);   // near side (Earth view), lit face toward camera
   camera.lookAt(0, 0, 0);
   controls.update();
 }).catch((e) => {

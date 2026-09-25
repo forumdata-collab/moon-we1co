@@ -6,6 +6,8 @@ body{background:#02040c;color:#e8ecff;font-family:-apple-system,BlinkMacSystemFo
 #gl:active{cursor:grabbing}
 #sky{position:fixed;inset:0;pointer-events:none;z-index:0;
   background:radial-gradient(120% 90% at 50% 8%, #0b1230 0%, #04060f 60%, #010208 100%)}
+#vignette{position:fixed;inset:0;pointer-events:none;z-index:1;
+  background:radial-gradient(ellipse at 50% 46%, transparent 58%, rgba(0,0,5,.42) 92%, rgba(0,0,6,.78) 100%)}
 .topbar{position:fixed;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;gap:10px;padding:12px 16px;
   background:linear-gradient(rgba(2,4,12,.72),transparent)}
 .brand{display:flex;align-items:center;gap:8px;margin-right:auto}
