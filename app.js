@@ -155,8 +155,10 @@ function hkLocalDate() {
   return new Date(Date.now() - (new Date()).getTimezoneOffset() * 60000);
 }
 
+let simNow = null;   // 月相模擬：null = 真實時間
+
 function updateInfo() {
-  const now = new Date();
+  const now = simNow || new Date();
   const ill = Astronomy.Illumination("Moon", now);
   const phase = ill.phase_fraction;
   document.getElementById("phase-val").textContent = `${lang === "zh" ? "光照" : "Illuminated"} ${Math.round(phase * 100)}%`;
@@ -302,6 +304,70 @@ document.getElementById("full-btn").addEventListener("click", () => {
   camera.position.set(0, 0.35, 3.4);
   camera.lookAt(0, 0, 0);
   controls.update();
+});
+
+/* ---------- moon phase simulator ---------- */
+function scanPhase(kind, from, to) {
+  // kind: "max" | "min" | "q1"（上弦：f 升穿 0.5）
+  let best = null, bestV = kind === "min" ? 1 : -1, prev = null;
+  const step = 1 / 24;
+  for (let d = -15; d <= 15; d += step) {
+    const t = new Date((from.getTime() + d * 86400000));
+    const f = Astronomy.Illumination("Moon", t).phase_fraction;
+    if (kind === "q1") {
+      if (prev !== null && f > prev && prev < 0.5 && f >= 0.5) { best = t; break; }
+      prev = f;
+    } else if ((kind === "max" && f > bestV) || (kind === "min" && f < bestV)) {
+      bestV = f; best = t;
+    }
+  }
+  if (best) {   // refine (±3h, 5-min)
+    for (let m = -180; m <= 180; m += 5) {
+      const t = new Date(best.getTime() + m * 60000);
+      const f = Astronomy.Illumination("Moon", t).phase_fraction;
+      if ((kind === "max" && f > bestV) || (kind === "min" && f < bestV)) { bestV = f; best = t; }
+    }
+  }
+  return best;
+}
+
+function applySim(d) {
+  simNow = d;
+  const input = document.getElementById("sim-dt");
+  input.value = d ? toLocalInput(d) : "";
+  document.querySelectorAll(".sim-presets .pill").forEach((b) => b.classList.toggle("active", b.dataset.sim === "live" && !d));
+  updateInfo();
+}
+function toLocalInput(d) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+document.querySelector(".sim-presets").addEventListener("click", (e) => {
+  const btn = e.target.closest(".pill");
+  if (!btn) return;
+  const k = btn.dataset.sim;
+  let d = null;
+  if (k === "lastnight") {
+    d = new Date(); d.setDate(d.getDate() - 1);
+    d.setHours(22, 0, 0, 0);   // 昨晚10點（本地時間）
+  } else if (k === "full") {
+    d = scanPhase("max", new Date(), new Date());
+  } else if (k === "firstq") {
+    d = scanPhase("q1", new Date(), new Date());
+  } else if (k === "new") {
+    d = scanPhase("min", new Date(), new Date());
+  }
+  document.querySelectorAll(".sim-presets .pill").forEach((b) => b.classList.toggle("active", b.dataset.sim === k));
+  simNow = d;
+  const input = document.getElementById("sim-dt");
+  input.value = d ? toLocalInput(d) : "";
+  updateInfo();
+});
+document.getElementById("sim-dt").addEventListener("input", (e) => {
+  const v = e.target.value;
+  simNow = v ? new Date(v) : null;
+  document.querySelectorAll(".sim-presets .pill").forEach((b) => b.classList.toggle("active", false));
+  updateInfo();
 });
 
 /* ---------- load ---------- */

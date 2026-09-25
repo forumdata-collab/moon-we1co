@@ -33,3 +33,11 @@ body{background:#02040c;color:#e8ecff;font-family:-apple-system,BlinkMacSystemFo
   .info-panel{left:16px;right:auto;top:auto;bottom:48px}
   .brand small{display:none}
 }
+.sim-box{margin-top:10px;padding-top:8px;border-top:1px dashed rgba(255,255,255,.15)}
+.sim-title{margin:0 0 6px;font-size:11px;letter-spacing:.12em;color:#9aa7d8}
+.sim-presets{display:flex;flex-wrap:wrap;gap:5px}
+.sim-presets .pill{padding:4px 9px;font-size:11.5px}
+.sim-presets .pill.active{background:#f4c95d;border-color:#f4c95d;color:#20140a;font-weight:600}
+#sim-dt{margin-top:6px;width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);border-radius:7px;color:#e8ecff;font-size:11.5px;padding:4px 6px;font-family:inherit}
+#sim-dt::-webkit-calendar-picker-indicator{filter:invert(.8)}
+@media(max-width:560px){.sim-presets .pill{flex:1 1 45%}}
