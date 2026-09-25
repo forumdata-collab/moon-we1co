@@ -6,7 +6,7 @@
 <meta name="description" content="中秋賞月 · 3D 月球 · 真實月相" />
 <title>賞月 · 3D 月球</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%95%3C/text%3E%3C/svg%3E" />
-<link rel="stylesheet" href="./app.css?v=3" />
+<link rel="stylesheet" href="./app.css?v=4" />
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three.module.min.js",
@@ -32,6 +32,7 @@
 
 <div id="info" class="info-panel">
   <div class="info-row"><span data-i18n="info.phase">月相</span><b id="phase-val">…</b></div>
+  <div class="info-row"><span data-i18n="info.age">月齡</span><b id="age-val">…</b></div>
   <div class="info-row"><span data-i18n="info.full">滿月</span><b id="full-val">…</b></div>
   <div class="info-row"><span data-i18n="info.rise">月出</span><b id="rise-val">…</b></div>
   <div class="info-row"><span data-i18n="info.set">月落</span><b id="set-val">…</b></div>
@@ -48,6 +49,19 @@
     </div>
     <input id="sim-dt" type="datetime-local" aria-label="simulate time" />
   </div>
+  <div class="cal-box">
+    <p class="sim-title" data-i18n="cal.title">📅 月曆</p>
+    <div class="cal-nav">
+      <button type="button" class="pill sm" id="cal-prev" aria-label="prev month">◀</button>
+      <b id="cal-month">…</b>
+      <button type="button" class="pill sm" id="cal-next" aria-label="next month">▶</button>
+      <button type="button" class="pill sm" id="cal-today" data-i18n="cal.today">今日</button>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <p class="sim-title cal-phases-title" data-i18n="cal.phases">本月光相</p>
+    <div class="cal-phases" id="cal-phases"></div>
+    <p class="info-note" data-i18n="cal.hint">撳任何一日，3D 月亮即刻切去嗰日嘅月相</p>
+  </div>
 </div>
 
 <div id="tooltip" class="tooltip" hidden></div>
@@ -56,6 +70,6 @@
   Moon texture: NASA/Goddard SVS (LRO LOLA, public domain) · three.js &amp; astronomy-engine (MIT)
 </footer>
 <script src="./vendor/astronomy.browser.min.js"></script>
-<script type="module" src="./app.js?v=15"></script>
+<script type="module" src="./app.js?v=20"></script>
 </body>
 </html>

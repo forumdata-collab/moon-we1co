@@ -7,16 +7,26 @@ const T = {
   zh: {
     "brand": "3D 賞月", "brand.sub": "中秋 · 真實月相",
     "full": "◉ 滿月視角", "loading": "月亮升空中…",
-    "info.phase": "月相", "info.full": "滿月", "info.rise": "月出", "info.set": "月落",
+    "info.phase": "月相", "info.age": "月齡", "info.full": "滿月", "info.rise": "月出", "info.set": "月落",
     "info.az": "方位（仰角）", "info.hint": "拖曳旋轉 · 滾輪縮放 · 指住月面睇地名",
     "tip.phase": "光照",
+    "cal.title": "📅 月曆", "cal.today": "今日", "cal.phases": "本月光相",
+    "cal.hint": "撳任何一日，3D 月亮即刻切去嗰日嘅月相",
+    "cal.new": "新月", "cal.full": "滿月", "cal.fq": "上弦月", "cal.tq": "下弦月",
+    "cal.wd": ["一", "二", "三", "四", "五", "六", "日"],
+    "cal.moon": "月亮",
   },
   en: {
     "brand": "3D Moon", "brand.sub": "Mid-Autumn · real phase",
     "full": "◉ Full-moon view", "loading": "Moon is rising…",
-    "info.phase": "Phase", "info.full": "Full moon", "info.rise": "Moonrise", "info.set": "Moonset",
+    "info.phase": "Phase", "info.age": "Age", "info.full": "Full moon", "info.rise": "Moonrise", "info.set": "Moonset",
     "info.az": "Azimuth (alt)", "info.hint": "Drag to rotate · scroll to zoom · hover for names",
     "tip.phase": "Illumination",
+    "cal.title": "📅 Moon Calendar", "cal.today": "Today", "cal.phases": "Phases this month",
+    "cal.hint": "Tap any day — the 3D moon switches to that day's phase",
+    "cal.new": "New moon", "cal.full": "Full moon", "cal.fq": "First quarter", "cal.tq": "Last quarter",
+    "cal.wd": ["M", "T", "W", "T", "F", "S", "S"],
+    "cal.moon": "moon",
   },
 };
 let lang = localStorage.getItem("moon-lang") || (navigator.language && navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en");
@@ -30,6 +40,7 @@ document.querySelector("#lang-btn").addEventListener("click", () => {
   localStorage.setItem("moon-lang", lang);
   renderI18n();
   updateInfo();
+  renderCalendar();
 });
 renderI18n();
 
@@ -162,6 +173,9 @@ function updateInfo() {
   const ill = Astronomy.Illumination("Moon", now);
   const phase = ill.phase_fraction;
   document.getElementById("phase-val").textContent = `${lang === "zh" ? "光照" : "Illuminated"} ${Math.round(phase * 100)}%`;
+  // 月齡：astronomy 嘅 phase_angle 喺月球度望太陽-地球夾角——滿月≈0°、新月≈180°
+  const age = ((180 - (ill.phase_angle || 0)) / 360) * 29.530588853;
+  document.getElementById("age-val").textContent = `${age.toFixed(1)} ${lang === "zh" ? "天" : "days"}`;
 
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   let rise = null, set = null;
@@ -370,6 +384,100 @@ document.getElementById("sim-dt").addEventListener("input", (e) => {
   updateInfo();
 });
 
+/* ---------- 月曆（Star Walk homage + 互動升級） ---------- */
+const PHASE_ICONS = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"];
+let calBase = new Date(); calBase.setDate(1);   // 顯示中嘅月份（1 號）
+
+function phaseIcon(f, waxing) {
+  // f: 照亮度 0..1；waxing 決定 icon 方向
+  if (f < 0.0625) return "🌑";
+  if (f < 0.1875) return waxing ? "🌒" : "🌘";
+  if (f < 0.3125) return waxing ? "🌓" : "🌗";
+  if (f < 0.4375) return waxing ? "🌔" : "🌖";
+  if (f < 0.5625) return "🌕";
+  if (f < 0.6875) return waxing ? "🌖" : "🌔";
+  if (f < 0.8125) return waxing ? "🌗" : "🌓";
+  if (f < 0.9375) return waxing ? "🌘" : "🌒";
+  return "🌑";
+}
+
+function renderCalendar() {
+  const y = calBase.getFullYear(), m = calBase.getMonth();
+  const days = new Date(y, m + 1, 0).getDate();
+  const lead = (new Date(y, m, 1).getDay() + 6) % 7;   // 週一開頭
+  document.getElementById("cal-month").textContent = `${y} 年 ${m + 1} 月`;
+  const wd = t("cal.wd");
+  const now = new Date();
+  let html = wd.map((d) => `<span class="cal-wd">${d}</span>`).join("");
+  for (let i = 0; i < lead; i++) html += `<span class="cal-cell cal-empty"></span>`;
+  for (let d = 1; d <= days; d++) {
+    const noon = new Date(y, m, d, 12, 0);
+    const f = Astronomy.Illumination("Moon", noon).phase_fraction;
+    const f2 = Astronomy.Illumination("Moon", new Date(noon.getTime() + 12 * 3600e3)).phase_fraction;
+    const waxing = f2 >= f;
+    const isToday = d === now.getDate() && m === now.getMonth() && y === now.getFullYear();
+    const isNew = f <= 0.03, isFull = f >= 0.97;
+    html += `<button type="button" class="cal-cell${isToday ? " today" : ""}" data-day="${d}" title="${d} 日">`
+      + `<span class="cal-ico">${phaseIcon(f, waxing)}</span>`
+      + `<span class="cal-num">${d}</span>`
+      + (isNew || isFull ? `<span class="cal-mark ${isFull ? "full" : ""}">${isFull ? "●" : "○"}</span>` : "")
+      + `</button>`;
+  }
+  document.getElementById("cal-grid").innerHTML = html;
+  document.querySelectorAll("#cal-grid .cal-cell[data-day]").forEach((cell) => {
+    cell.addEventListener("click", () => {
+      applySim(new Date(y, m, Number(cell.dataset.day), 22, 0));
+      canvas.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+  renderMajorPhases();
+}
+
+function fmtCal(d) {
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function renderMajorPhases() {
+  const y = calBase.getFullYear(), m = calBase.getMonth();
+  const t0 = new Date(y, m, 1).getTime(), t1 = new Date(y, m + 1, 1).getTime();
+  let best = { full: null, fullF: -1, new: null, newF: 1, q1: null, q3: null }, prev = null;
+  for (let ts = t0; ts < t1; ts += 2 * 3600e3) {
+    const f = Astronomy.Illumination("Moon", new Date(ts)).phase_fraction;
+    if (f > best.fullF) { best.fullF = f; best.full = ts; }
+    if (f < best.newF) { best.newF = f; best.new = ts; }
+    if (prev !== null && prev.f < 0.5 && f >= 0.5) best.q1 = ts;   // 上弦（照度升穿 0.5）
+    if (prev !== null && prev.f > 0.5 && f <= 0.5) best.q3 = ts;   // 下弦（照度跌穿 0.5）
+    prev = { f };
+  }
+  const refine = (ts, dir) => {
+    let t = ts, bestV = dir === "max" ? -1 : 1;
+    for (let k = -3 * 3600e3; k <= 3 * 3600e3; k += 15 * 60e3) {
+      const f = Astronomy.Illumination("Moon", new Date(ts + k)).phase_fraction;
+      if (dir === "half") { if (Math.abs(f - 0.5) < bestV) { bestV = Math.abs(f - 0.5); t = ts + k; } }
+      else if ((dir === "max" && f > bestV) || (dir === "min" && f < bestV)) { bestV = f; t = ts + k; }
+    }
+    return new Date(t);
+  };
+  const fullD = best.full ? refine(best.full, "max") : null;
+  const newD = best.new ? refine(best.new, "min") : null;
+  const q1D = best.q1 ? refine(best.q1, "half") : null;   // 上弦 = f 啱啱升穿 0.5
+  const q3D = best.q3 ? refine(best.q3, "half") : null;   // 下弦 = f 啱啱跌穿 0.5
+  const rows = [
+    [t("cal.new"), newD], [t("cal.fq"), q1D], [t("cal.full"), fullD], [t("cal.tq"), q3D],
+  ];
+  document.getElementById("cal-phases").innerHTML = rows
+    .map(([name, d]) => `<div class="cal-phase"><span>${name}</span><b>${d ? fmtCal(d) : "—"}</b></div>`)
+    .join("");
+}
+
+document.getElementById("cal-prev").addEventListener("click", () => { calBase.setMonth(calBase.getMonth() - 1); renderCalendar(); });
+document.getElementById("cal-next").addEventListener("click", () => { calBase.setMonth(calBase.getMonth() + 1); renderCalendar(); });
+document.getElementById("cal-today").addEventListener("click", () => {
+  const n = new Date(); calBase = new Date(n.getFullYear(), n.getMonth(), 1);
+  renderCalendar();
+  applySim(null);
+});
+
 /* ---------- load ---------- */
 // GPU-aware 紋理揀選：查實際 MAX_TEXTURE_SIZE；手機（細屏/觸控）封頂 4K，唔好用 8K（好多手機 GPU 上限 4096，8K upload 唔到 → 月面變黑）
 function webglMaxTex() {
@@ -414,6 +522,9 @@ Promise.all([
   document.getElementById("load-text").textContent = "Texture load failed: " + e;
 });
 
+/* 月曆初始化（Astronomy 係 global，唔使等紋理；放喺 loop 之前，virtual-time rAF 唔 fire 都唔會阻住） */
+renderCalendar();
+
 /* ---------- loop ---------- */
 function animate() {
   requestAnimationFrame(animate);
@@ -421,13 +532,15 @@ function animate() {
   controls.update();
   renderer.render(scene, camera);
 }
-animate();
+setTimeout(() => { requestAnimationFrame(animate); }, 0);
 
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+/* (calendar init moved before loop) */
 
 window.addEventListener("pointerdown", () => (tooltip.hidden = false));
 
