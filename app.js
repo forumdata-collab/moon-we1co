@@ -71,8 +71,8 @@ scene.add(sun.target);
 camera.add(sun);
 scene.add(camera);
 
-/* ambient earthshine (dim so the terminator side is dark, photo-like) */
-scene.add(new THREE.AmbientLight(0x334466, 0.16));
+/* ambient earthshine — 提高令暗面（新月/娥眉）都睇到個月亮碟形，任何日子都清晰 */
+scene.add(new THREE.AmbientLight(0x334466, 0.42));
 
 /* ---------- stars ---------- */
 function stars(count, size, spread) {
