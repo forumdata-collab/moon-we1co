@@ -64,9 +64,12 @@ controls.minDistance = 1.5;
 controls.maxDistance = 12;
 controls.autoRotate = false;
 
-/* sun light (moon phase) */
+/* sun light (moon phase) — 光源跟鏡頭：任何角度睇，照亮面永遠向住鏡頭（phase tilt 令月相正確） */
 const sun = new THREE.DirectionalLight(0xfff6e8, 3.0);
-scene.add(sun);
+sun.target.position.set(0, 0, 0);
+scene.add(sun.target);
+camera.add(sun);
+scene.add(camera);
 
 /* ambient earthshine (dim so the terminator side is dark, photo-like) */
 scene.add(new THREE.AmbientLight(0x334466, 0.16));
@@ -225,8 +228,8 @@ function updateInfo() {
     document.getElementById("az-val").textContent = "—";
   }
 
-  // Light comes from the Earth-side (camera-side) direction, tilted by the real phase angle,
-  // so at full moon the terminator sits at the limb (photo-real), not across the face.
+  // 光源喺鏡頭空間：+Z = 鏡頭後面 → 照住朝向鏡頭嗰面；phaseAngle 傾斜令月相正確（滿月=照正面、新月=照背面）
+  // 鏡頭轉去邊都唔會再有「滿月變黑」——光照跟鏡頭，唔係釘死喺世界
   const phaseAngle = Math.acos(Math.max(-1, Math.min(1, 2 * phase - 1)));   // 0..π
   const ca = Math.cos(phaseAngle), sa = Math.sin(phaseAngle);
   sun.position.set(8 * sa, 0.0, 8 * ca);
