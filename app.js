@@ -389,16 +389,13 @@ const PHASE_ICONS = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "�
 let calBase = new Date(); calBase.setDate(1);   // 顯示中嘅月份（1 號）
 
 function phaseIcon(f, waxing) {
-  // f: 照亮度 0..1；waxing 決定 icon 方向
-  if (f < 0.0625) return "🌑";
-  if (f < 0.1875) return waxing ? "🌒" : "🌘";
-  if (f < 0.3125) return waxing ? "🌓" : "🌗";
-  if (f < 0.4375) return waxing ? "🌔" : "🌖";
-  if (f < 0.5625) return "🌕";
-  if (f < 0.6875) return waxing ? "🌖" : "🌔";
-  if (f < 0.8125) return waxing ? "🌗" : "🌓";
-  if (f < 0.9375) return waxing ? "🌘" : "🌒";
-  return "🌑";
+  // f: 照亮度 0..1；waxing 決定 icon 方向（盈 → 🌒🌓🌔，虧 → 🌘🌗🌖）
+  // 邊界用 cos 映射（照度空間）：新月<3.8%、弦月帶 31–69%（上/下弦=0.5 啱啱喺中間）、滿月>96.2%
+  if (f < 0.038) return "🌑";
+  if (f < 0.309) return waxing ? "🌒" : "🌘";
+  if (f < 0.691) return waxing ? "🌓" : "🌗";
+  if (f < 0.962) return waxing ? "🌔" : "🌖";
+  return "🌕";
 }
 
 function renderCalendar() {
